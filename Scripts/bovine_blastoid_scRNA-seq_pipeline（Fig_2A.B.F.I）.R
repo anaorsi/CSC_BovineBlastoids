@@ -1,3 +1,4 @@
+# load packages
 rm(list=ls())
 library(Seurat)
 library(dplyr)
@@ -13,10 +14,12 @@ library(GenomicFeatures)
 library(DESeq2)
 library(ggpubr)
 library(ComplexHeatmap)
-### load blastoid single-cell data
+
+#=========================================================================================================
+#=================================== load all bovine scRNA-seq data ========================================
 setwd("/home/bovine/merge/blastoid")
 exp1<-Read10X(data.dir="filtered_feature_bc_matrix/") # load cellranger files
-# load blastoid single cell data and quanlity control 
+# load blastoid 10x scRNA-seq data in our research 
 cow1<-CreateSeuratObject(counts = exp1, min.cells = 3, min.features = 300,project = "Blastoid")
 cow1@meta.data$tech<-"10xseq"
 cow1@meta.data$celltype<-"Blastoid"
@@ -25,12 +28,11 @@ cow1[["percent.mt"]] <- PercentageFeatureSet(cow1, pattern = "^MT-")
 cow1@meta.data$sample<-as.matrix(cow1@active.ident)                
 cow1 <- subset(x = cow1, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 & percent.mt < 15)
 cow1 <- subset(x = cow1, subset = nCount_RNA > 5000 & nCount_RNA < 30000)
-### load data1
+# load data1
 exp1<-read.table("data1/data1_TPM_out.txt",header = T)
 meta1<-read.table("data1/mata-data1.txt",header = T,sep = "\t")
 rownames(meta1)<-meta1$cellname
 meta1<-meta1[,-1]
-# change Ensemble id to symbol
 en2sy<-read.table("jie/cow/Ensembl2symble_bovine.txt")
 colnames(en2sy)<-c("Ensemblid","symbol")
 en2sy<-as.data.frame(en2sy)
@@ -57,7 +59,7 @@ data1<-CreateSeuratObject(counts = exp1, meta.data =meta1, project = "data1_2951
 data1[["percent.mt"]] <- PercentageFeatureSet(data1, pattern = "^MT-")
 data1@meta.data$sample<-as.matrix(data1@active.ident)                
 data1 <- subset(x = data1, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 & percent.mt < 20)
-### load data2
+# load data2
 exp2<-read.table("data2/data2_TPM_out.txt",header = T,sep = "\t")
 meta2<-read.table("data2/meta-data2.txt",header = T,sep = "\t")
 rownames(meta2)<-meta2$cellname
@@ -85,8 +87,7 @@ data2<-CreateSeuratObject(counts = exp2, meta.data =meta2,project = "data2_Jiang
 data2[["percent.mt"]] <- PercentageFeatureSet(data2, pattern = "^MT-")
 data2@meta.data$sample<-as.matrix(data2@active.ident)                
 data2 <- subset(x = data2, subset =  nFeature_RNA > 200 & percent.mt < 20)
-
-### data3 integrated all cells 
+# load data3
 countlist<-list.files("countfile")
 for (i in 1:length(countlist)) {
   counti<-read.table(file = paste("countfile/",countlist[i],sep = ""),header = F)
@@ -113,8 +114,6 @@ if (identical(names(genelen),rownames(data3))) {
 }
 colSums(tpms)
 write.table(as.data.frame(TPM), file="data3_TPM_out.txt",sep="\t",row.names = F)
-
-# load data3
 exp3<-read.table("data3/data3_TPM_out.txt",header = T,sep = "\t")
 meta3<-read.table("data3/meta-data3.txt",header = T,sep = "\t")
 rownames(meta3)<-meta3$cellname
@@ -146,7 +145,8 @@ data3[["percent.mt"]] <- PercentageFeatureSet(data3, pattern = "^MT-")
 data3@meta.data$sample<-as.matrix(data3@active.ident)                
 data3 <- subset(x = data3, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 & percent.mt < 20)
 
-### merge all data
+#=========================================================================================================
+#================================= merge all data and quanlity control ===================================
 cow_all<-merge(x = cow1,y = c(data1,data2,data3))
 cowall.list <- SplitObject(cow_all, split.by = "data")
 for (i in 1:length(x = cowall.list)) {
@@ -189,7 +189,8 @@ DimPlot(object = cow_all,reduction = "umap",group.by = "celltype2",pt.size = 1.0
 dev.off()
 cow_all@meta.data$ori_celltype = cow_all@active.ident
 
-# cell type annotation through marker genes 
+#=========================================================================================================
+#=============================== cell type annotation through marker genes  ==============================
 markergenes<-read.csv("Three germ layers markers.csv",header = T)
 markers<-as.vector(as.matrix(markergenes))
 markers<-unique(markers)
@@ -236,7 +237,8 @@ pdf(file = "cow_all_marker_dotplot.pdf",width = 14,height = 6)
 print(p)
 dev.off()
 
-# calculated DEGs
+#=========================================================================================================
+#============================= Count DEGs and cell numbers in each cell type  ============================
 cow_all.markers <- FindAllMarkers(object = cow_all, only.pos = F)
 cow_all.markers<-cow_all.markers[cow_all.markers$p_val_adj<0.05,]
 cow_all.markers %>% group_by(cluster) %>% top_n(25, avg_logFC) -> top25_up
@@ -245,8 +247,7 @@ top25_up<-top25_up[top25_up$avg_logFC>0,]
 top25_down<-top25_down[top25_down$avg_logFC<0,]
 write.table(x=top25_up,file = "Bovine_merged_top25_UP_DEGs.txt",sep = "\t",row.names = F)
 write.table(x=top25_down,file = "Bovine_merged_top25_Down_DEGs.txt",sep = "\t",row.names = F)
-
-# show marker genes expression
+# show marker genes expression in each cell types
 markers_select = c("SOX2","SOX17","GATA2")
 markers = markers_select
 markers<-unique(markers)
@@ -276,13 +277,12 @@ for (i in levels(df.plot$id)){
 row.names(data.cluster)<-levels(df.plot$id)
 d <- dist(data.cluster, method = "euclidean")
 fit2 <- hclust(d, method="ward.D")
-
+# Figure 2B
 pdf(file = "Figure_2B.pdf",width = 8,height =6 )
 plot(fit2, col = "black", col.main = "#45ADA8", col.lab = "#7C8071",
      col.axis = "#F38630", lwd = 3, lty = 1, 
      axes = F, hang = -1)
 dev.off()
-
 cluster_order<-row.names(data.cluster)[fit2$order]
 df.plot$id <- factor(df.plot$id,levels = cluster_order)
 p <- ggplot(df.plot,aes(x=features.plot,y = as.numeric(id),size = (pct.exp^2)/100, color = avg.exp.scaled))+
@@ -297,8 +297,7 @@ p <- ggplot(df.plot,aes(x=features.plot,y = as.numeric(id),size = (pct.exp^2)/10
 pdf(file = "cow_all_marker_dotplot_selectmarkers.pdf",width = 14,height = 6)
 print(p)
 dev.off()
-
-## merged cells percent in each cell types
+# merged cells percent in each cell types
 # Figure 2F
 cow_all@meta.data$celltype_pre<-cow_all$celltype
 cow_all$celltype_pre<-plyr::mapvalues(x = cow_all$celltype_pre, from = c("IVF_2 cell","IVF_16 cell","IVF_8 cell","IVF_zygote"), to = rep("Pre_lineage",4))
@@ -347,8 +346,8 @@ ce<-ddply(table_sample_type,"Celltype",transform,percent_weight=Cellnumber/sum(C
 p_bar2<-ggplot(ce,aes(x=Celltype,y=percent_weight,fill=Cancertype))+geom_bar(stat = "identity")+theme_bw()
 ggsave("cowall_datatype_percent.pdf", p_bar2, width=10 ,height=8)
 
-### Cell trajectory analysis through monocle3
-# Figure 2I
+#=========================================================================================================
+#=============================== Cell trajectory analysis through monocle3  ==============================
 library(monocle3)
 library(tidyverse)
 library(patchwork)
@@ -376,10 +375,10 @@ cds.embed <- cds@int_colData$reducedDims$UMAP
 int.embed <- Embeddings(cow_all, reduction = "umap")
 int.embed <- int.embed[rownames(cds.embed),]
 cds@int_colData$reducedDims$UMAP <- int.embed 
- cds@int_colData$reducedDims$UMAP <- cds.embed
+cds@int_colData$reducedDims$UMAP <- cds.embed
 plot_cells(cds, reduction_method="UMAP", color_cells_by="celltype") 
 cds <- learn_graph(cds,verbose = T,use_partition = F,close_loop = F)
-head(colData(cds))
+# Figure 2I
 pdf(file = "pseudotime_celltype.pdf",height = 8,width = 9)
 plot_cells(cds,
            color_cells_by = "celltype",
