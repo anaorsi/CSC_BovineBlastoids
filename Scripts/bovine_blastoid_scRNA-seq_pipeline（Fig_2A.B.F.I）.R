@@ -16,7 +16,7 @@ library(ggpubr)
 library(ComplexHeatmap)
 
 #=========================================================================================================
-#=================================== load all bovine scRNA-seq data ========================================
+#=================================== load all bovine scRNA-seq data ======================================
 setwd("/home/bovine/merge/blastoid")
 exp1<-Read10X(data.dir="filtered_feature_bc_matrix/") # load cellranger files
 # load blastoid 10x scRNA-seq data in our research 
